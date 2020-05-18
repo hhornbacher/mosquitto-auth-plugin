@@ -12,7 +12,7 @@ extern "C"
 #include <mosquitto_broker.h>
 }
 
-int MosquittoAuthPlugin::security_init(const Options opts, const bool reload)
+int MosquittoAuthPlugin::security_init(const PluginOptions opts, const bool reload)
 {
     mosquitto_log_printf(MOSQ_LOG_DEBUG, "security_init");
     mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Options:");
@@ -21,9 +21,14 @@ int MosquittoAuthPlugin::security_init(const Options opts, const bool reload)
         mosquitto_log_printf(MOSQ_LOG_DEBUG, "    %s=%s", opt.first.c_str(), opt.second.c_str());
     }
     mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Reload: %d", reload);
+    if (!m_repo->init(opts))
+    {
+        return MOSQ_ERR_NOT_SUPPORTED;
+    }
+
     return MOSQ_ERR_SUCCESS;
 }
-int MosquittoAuthPlugin::security_cleanup(const Options opts, const bool reload)
+int MosquittoAuthPlugin::security_cleanup(const PluginOptions opts, const bool reload)
 {
     mosquitto_log_printf(MOSQ_LOG_DEBUG, "security_cleanup");
     mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Options:");
@@ -32,6 +37,7 @@ int MosquittoAuthPlugin::security_cleanup(const Options opts, const bool reload)
         mosquitto_log_printf(MOSQ_LOG_DEBUG, "    %s=%s", opt.first.c_str(), opt.second.c_str());
     }
     mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Reload: %d", reload);
+    m_repo->cleanup();
     return MOSQ_ERR_SUCCESS;
 }
 int MosquittoAuthPlugin::acl_check(int access, mosquitto *client, const mosquitto_acl_msg *msg)
@@ -46,10 +52,10 @@ int MosquittoAuthPlugin::acl_check(int access, mosquitto *client, const mosquitt
     std::string username = mosquitto_client_username(client);
 
     User user;
-    if (repo->get_user(username, user))
+    if (m_repo->get_user(username, user))
     {
         std::vector<AclRule> rules;
-        repo->get_acl_rules(rules);
+        m_repo->get_acl_rules(rules);
 
         for (auto rule : rules)
         {
@@ -85,7 +91,7 @@ int MosquittoAuthPlugin::unpwd_check(mosquitto *client, const char *username, co
     mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Password: %s", password);
 
     User user;
-    if (repo->get_user(username, user))
+    if (m_repo->get_user(username, user))
     {
         if (libscrypt_check(&user.password_hash[0], password))
         {

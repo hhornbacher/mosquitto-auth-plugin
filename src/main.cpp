@@ -3,6 +3,7 @@
 #include <mosquitto.h>
 
 #include "plugin.h"
+#include "options.h"
 #include "repository_file.h"
 
 extern "C"
@@ -18,15 +19,10 @@ extern "C"
     int mosquitto_auth_plugin_init(void **user_data, struct mosquitto_opt *opts, int opt_count)
     {
         mosquitto_log_printf(MOSQ_LOG_DEBUG, "Initialize auth plugin");
-        std::string repo_backend = "file";
-        for (int i = 0; i < opt_count; ++i)
-        {
-            if (strcmp(opts[i].key, "repo_backend") == 0)
-            {
-                repo_backend = opts[i].value;
-                break;
-            }
-        }
+        PluginOptions options;
+        options.load_mosquitto_opts(opts, opt_count);
+
+        auto repo_backend = options.get("repo_backend", "file");
 
         std::unique_ptr<AuthRepository> repo;
         if (repo_backend == "file")
@@ -35,9 +31,10 @@ extern "C"
         }
         else
         {
-            *user_data = NULL;
+            mosquitto_log_printf(MOSQ_LOG_ERR, "You need to configure a supported repository backend: %s not available", repo_backend.c_str());
             return MOSQ_ERR_NOT_SUPPORTED;
         }
+
         *user_data = (void *)new MosquittoAuthPlugin(
             std::move(repo));
         return MOSQ_ERR_SUCCESS;
@@ -57,22 +54,16 @@ extern "C"
     int mosquitto_auth_security_init(void *user_data, struct mosquitto_opt *opts, int opt_count, bool reload)
     {
         auto plugin = static_cast<MosquittoAuthPlugin *>(user_data);
-        MosquittoAuthPlugin::Options options;
-        for (int i = 0; i < opt_count; ++i)
-        {
-            options[opts[i].key] = opts[i].value;
-        }
+        PluginOptions options;
+        options.load_mosquitto_opts(opts, opt_count);
         return plugin->security_init(options, reload);
     }
 
     int mosquitto_auth_security_cleanup(void *user_data, struct mosquitto_opt *opts, int opt_count, bool reload)
     {
         auto plugin = static_cast<MosquittoAuthPlugin *>(user_data);
-        MosquittoAuthPlugin::Options options;
-        for (int i = 0; i < opt_count; ++i)
-        {
-            options[opts[i].key] = opts[i].value;
-        }
+        PluginOptions options;
+        options.load_mosquitto_opts(opts, opt_count);
         return plugin->security_cleanup(options, reload);
     }
 
