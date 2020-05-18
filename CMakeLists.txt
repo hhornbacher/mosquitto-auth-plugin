@@ -6,6 +6,9 @@ project(mosquitto-auth)
 
 set(LIB_NAME ${PROJECT_NAME})
 
+# Default GNU install directories
+include(GNUInstallDirs)
+
 # Enable C++17 standard
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra")
@@ -39,4 +42,11 @@ add_library(
 target_link_libraries(
     ${LIB_NAME}
     ${SCRYPT_LIBRARY}
+)
+
+# Install files
+
+install (
+    TARGETS ${LIB_NAME}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
