@@ -3,6 +3,8 @@
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
+#include <string>
+#include <sstream>
 
 #include <libscrypt.h>
 
@@ -74,9 +76,10 @@ int MosquittoAuthPlugin::acl_check(int access, mosquitto *client, const mosquitt
                                            key.length(), mosquitto_client_id(client));
             }
 
-            mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Rule Topic: %s", topic.c_str());
-            mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Rule Access: %d", rule.access);
-            if (msg->topic == topic)
+            mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Rule topic: %s", topic.c_str());
+            mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Rule access: %d", rule.access);
+            mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Rule group: %d", rule.group);
+            if (compare_topics(msg->topic, topic))
             {
                 if (
                     (access == MOSQ_ACL_SUBSCRIBE && rule.access & AclAccess::Subscribe) ||
@@ -121,4 +124,37 @@ int MosquittoAuthPlugin::unpwd_check(mosquitto *client, const char *username, co
     }
     mosquitto_log_printf(MOSQ_LOG_WARNING, "Unknown user: %s", username);
     return MOSQ_ERR_AUTH;
+}
+
+bool MosquittoAuthPlugin::compare_topics(std::string topic_a, std::string topic_b)
+{
+    auto split = [](const std::string &str, std::vector<std::string> &cont) {
+        std::stringstream ss(str);
+        std::string token;
+        while (std::getline(ss, token, '/'))
+        {
+            cont.push_back(token);
+        }
+    };
+
+    std::vector<std::string> topic_a_vec;
+    std::vector<std::string> topic_b_vec;
+
+    split(topic_a, topic_a_vec);
+    split(topic_b, topic_b_vec);
+
+    if (topic_a_vec.size() != topic_b_vec.size())
+    {
+        return false;
+    }
+
+    for (size_t i = 0; i < topic_a_vec.size(); i++)
+    {
+        if (topic_a_vec[i] != topic_b_vec[i] && topic_a_vec[i] != "+" && topic_b_vec[i] != "+")
+        {
+            return false;
+        }
+    }
+
+    return true;
 }

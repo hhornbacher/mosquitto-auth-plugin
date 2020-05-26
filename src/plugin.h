@@ -22,6 +22,9 @@ public:
     int acl_check(int access, mosquitto *client, const mosquitto_acl_msg *msg);
     int unpwd_check(mosquitto *client, const char *username, const char *password);
 
+protected:
+    bool compare_topics(std::string topic_a, std::string topic_b);
+
 private:
     std::unique_ptr<AuthRepository> m_repo;
 };
