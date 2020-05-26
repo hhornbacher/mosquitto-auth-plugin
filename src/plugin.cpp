@@ -59,8 +59,13 @@ int MosquittoAuthPlugin::acl_check(int access, mosquitto *client, const mosquitt
 
         for (auto rule : rules)
         {
-            if (msg->topic == rule.topic)
+            std::string key("{client_id}");
+            std::string topic = rule.topic.replace(rule.topic.find(key),
+                                          key.length(), mosquitto_client_id(client));
+            if (msg->topic == topic)
             {
+                mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Rule Topic: %s", rule.topic);
+                mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Rule Access: %d", rule.access);
                 if (
                     (access == MOSQ_ACL_SUBSCRIBE && rule.access & AclAccess::Subscribe) ||
                     (access == MOSQ_ACL_READ && rule.access & AclAccess::Read) ||
@@ -82,6 +87,7 @@ int MosquittoAuthPlugin::acl_check(int access, mosquitto *client, const mosquitt
     mosquitto_log_printf(MOSQ_LOG_WARNING, "ACL Unknown user: %s", username);
     return MOSQ_ERR_ACL_DENIED;
 }
+
 int MosquittoAuthPlugin::unpwd_check(mosquitto *client, const char *username, const char *password)
 {
     mosquitto_log_printf(MOSQ_LOG_DEBUG, "unpwd_check");
