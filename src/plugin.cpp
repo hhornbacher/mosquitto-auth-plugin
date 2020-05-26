@@ -1,6 +1,7 @@
 #include "plugin.h"
 
 #include <cstdio>
+#include <cstring>
 #include <algorithm>
 
 #include <libscrypt.h>
@@ -42,14 +43,20 @@ int MosquittoAuthPlugin::security_cleanup(const PluginOptions opts, const bool r
 }
 int MosquittoAuthPlugin::acl_check(int access, mosquitto *client, const mosquitto_acl_msg *msg)
 {
+    const char *username = mosquitto_client_username(client);
+
     mosquitto_log_printf(MOSQ_LOG_DEBUG, "acl_check");
+    if (username == NULL)
+    {
+        mosquitto_log_printf(MOSQ_LOG_WARNING, "ACL failed for empty username!");
+        return MOSQ_ERR_ACL_DENIED;
+    }
+
     mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Access: %d", access);
     mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Address: %s", mosquitto_client_address(client));
     mosquitto_log_printf(MOSQ_LOG_DEBUG, "  ID: %s", mosquitto_client_id(client));
-    mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Username: %s", mosquitto_client_username(client));
+    mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Username: %s", username);
     mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Topic: %s", msg->topic);
-
-    std::string username = mosquitto_client_username(client);
 
     User user;
     if (m_repo->get_user(username, user))
@@ -59,13 +66,18 @@ int MosquittoAuthPlugin::acl_check(int access, mosquitto *client, const mosquitt
 
         for (auto rule : rules)
         {
-            std::string key("{client_id}");
-            std::string topic = rule.topic.replace(rule.topic.find(key),
-                                          key.length(), mosquitto_client_id(client));
+            std::string topic = rule.topic;
+            if (topic.find("{client_id}") != std::string::npos)
+            {
+                std::string key("{client_id}");
+                topic = rule.topic.replace(rule.topic.find(key),
+                                           key.length(), mosquitto_client_id(client));
+            }
+
+            mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Rule Topic: %s", topic.c_str());
+            mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Rule Access: %d", rule.access);
             if (msg->topic == topic)
             {
-                mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Rule Topic: %s", rule.topic);
-                mosquitto_log_printf(MOSQ_LOG_DEBUG, "  Rule Access: %d", rule.access);
                 if (
                     (access == MOSQ_ACL_SUBSCRIBE && rule.access & AclAccess::Subscribe) ||
                     (access == MOSQ_ACL_READ && rule.access & AclAccess::Read) ||
