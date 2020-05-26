@@ -47,15 +47,7 @@ bool FileAuthRepository::get_user(const std::string &username, User &user)
 
 void FileAuthRepository::get_acl_rules(std::vector<AclRule> &rules)
 {
-    AclRule rule;
-    rule.access = AclAccess::Read | AclAccess::Write | AclAccess::Subscribe;
-    rule.group = "controller";
-    rule.topic = "controller/test";
-    rules.push_back(rule);
-    rule.access = AclAccess::Read | AclAccess::Write | AclAccess::Subscribe;
-    rule.group = "device";
-    rule.topic = "device/test";
-    rules.push_back(rule);
+    rules = m_acl_rules;
 }
 
 void FileAuthRepository::split_string(std::string input, std::vector<std::string> &output, char delimiter)
